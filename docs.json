@@ -39,7 +39,8 @@
             "group": "Integrations",
             "pages": [
               "guides/langchain",
-              "guides/llamaindex"
+              "guides/llamaindex",
+              "guides/chrome-extension"
             ]
           }
         ]

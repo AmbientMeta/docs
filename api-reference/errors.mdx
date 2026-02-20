@@ -22,14 +22,18 @@ All errors return a consistent format with actionable suggestions.
 | Code | HTTP | Description | Suggestion |
 |------|------|-------------|------------|
 | `invalid_api_key` | 401 | API key missing or invalid | Check your API key in the dashboard |
+| `unauthorized` | 401 | Could not resolve organization | Verify your API key is valid |
 | `rate_limited` | 429 | Too many requests | Wait and retry, or upgrade your plan |
+| `extension_daily_limit` | 429 | Chrome extension daily limit reached | Upgrade to Pro for unlimited use |
 | `session_not_found` | 404 | Session ID doesn't exist | Check the session_id from sanitize |
 | `session_expired` | 410 | Session has expired | Sessions last 24 hours, re-sanitize |
 | `empty_text` | 400 | Text field is empty | Provide text to sanitize |
 | `text_too_large` | 413 | Text exceeds 100KB | Split into smaller chunks |
+| `invalid_request` | 400 | Malformed request body | See API docs for the correct request format |
 | `invalid_pattern` | 400 | Regex pattern is invalid | Check your pattern syntax |
 | `pattern_not_found` | 404 | Pattern ID doesn't exist | List patterns to find valid IDs |
 | `insight_not_found` | 404 | Insight ID doesn't exist | List insights to find valid IDs |
+| `internal_error` | 500 | An unexpected error occurred | Try again or contact support |
 
 ## Rate Limits
 
