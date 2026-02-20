@@ -1,0 +1,76 @@
+---
+title: LangChain Integration
+description: Safely use LangChain with any LLM without exposing PII
+---
+
+## Install
+
+```bash
+pip install langchain-ambientmeta
+```
+
+## Quick Start
+
+```python
+from langchain_ambientmeta import PrivacyLLM
+from langchain_openai import ChatOpenAI
+
+# Wrap your LLM with privacy protection
+safe_llm = PrivacyLLM(
+    llm=ChatOpenAI(model="gpt-4"),
+    api_key="am_live_xxx",
+)
+
+# Use normally — PII is automatically handled
+response = safe_llm.invoke("Summarize John Smith's file at john@acme.com")
+# OpenAI never sees the real PII
+```
+
+<Tip>
+**That's it!** The wrapper automatically sanitizes input, calls the LLM with safe text, and rehydrates the response.
+</Tip>
+
+## How It Works
+
+1. Your input is sanitized before reaching the LLM
+2. The LLM processes the sanitized text
+3. The response is rehydrated with original entities
+4. You get back the complete response
+
+## With Chains (LCEL)
+
+```python
+from langchain_core.prompts import ChatPromptTemplate
+
+prompt = ChatPromptTemplate.from_template("Answer this question: {query}")
+chain = prompt | safe_llm
+
+result = chain.invoke({"query": "What is John Smith's email?"})
+```
+
+## With RAG
+
+```python
+from langchain.chains import create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_core.prompts import ChatPromptTemplate
+
+prompt = ChatPromptTemplate.from_template(
+    "Answer the question based on context:\n{context}\n\nQuestion: {input}"
+)
+combine_chain = create_stuff_documents_chain(safe_llm, prompt)
+rag_chain = create_retrieval_chain(your_retriever, combine_chain)
+
+result = rag_chain.invoke({"input": "Find information about employee EMP-123456"})
+```
+
+## Configuration
+
+```python
+safe_llm = PrivacyLLM(
+    llm=ChatOpenAI(model="gpt-4"),
+    api_key="am_live_xxx",
+    entities=["PERSON", "EMAIL_ADDRESS", "SSN"],  # Optional: specific entities only
+    auto_rehydrate=True,   # Automatically restore PII in responses (default: True)
+)
+```

@@ -1,0 +1,131 @@
+---
+title: POST /v1/feedback
+description: Submit corrections to improve detection accuracy
+---
+
+Every correction you submit helps the system learn. Corrections drive contradiction detection, rule formulation, and accuracy improvements specific to your data.
+
+## Authentication
+
+```
+X-API-Key: am_live_your_key_here
+```
+
+## Batch Format (Preferred)
+
+Submit multiple corrections in a single request. Each correction references either a placeholder from the sanitize response or raw text for missed entities.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `session_id` | string | Yes | Session ID from the sanitize response |
+| `corrections` | array | Yes | Array of correction objects (max 50) |
+| `corrections[].placeholder` | string | Conditional | Reference to `[TYPE_N]` placeholder. Required for `misclassification` and `false_positive` |
+| `corrections[].span_text` | string | Conditional | Raw text span. Required for `missed_entity` |
+| `corrections[].correct_type` | string | Conditional | What the entity should be classified as. Required for `misclassification` and `missed_entity` |
+| `corrections[].feedback_type` | string | Yes | `misclassification`, `false_positive`, `missed_entity`, or `wrong_type` |
+
+### Example Request
+
+```bash
+curl -X POST https://api.ambientmeta.com/v1/feedback \
+  -H "X-API-Key: am_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "session_id": "ses_a1b2c3d4e5f6",
+    "corrections": [
+      {"placeholder": "[PHONE_NUMBER_1]", "correct_type": "NPI", "feedback_type": "misclassification"},
+      {"span_text": "Dr. Jane Smith", "correct_type": "PERSON", "feedback_type": "missed_entity"},
+      {"placeholder": "[SSN_1]", "feedback_type": "false_positive"}
+    ]
+  }'
+```
+
+### Example Response
+
+```json
+{
+  "accepted": 3,
+  "correction_ids": ["cor_xxx", "cor_yyy", "cor_zzz"],
+  "contradictions_detected": 1,
+  "message": "Thank you. 1 contradiction detected — check /v1/insights for details.",
+  "status": "recorded"
+}
+```
+
+## Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `accepted` | integer | Number of corrections accepted |
+| `correction_ids` | array | IDs assigned to each correction |
+| `contradictions_detected` | integer | Number of contradictions found against previous corrections |
+| `message` | string | Human-readable summary |
+| `status` | string | Always `"recorded"` |
+
+<Info>
+**Contradiction detection is automatic.** When you correct an entity in one direction (e.g., PHONE_NUMBER to NPI) and a previous correction went the other way (NPI to PHONE_NUMBER), the system detects this as a contradiction and creates an insight. Check [GET /v1/insights](/api-reference/insights) for details and resolution options.
+</Info>
+
+## Feedback Types
+
+| Type | When to Use | Required Fields |
+|------|-------------|-----------------|
+| `misclassification` | Entity was detected but classified as the wrong type | `placeholder` + `correct_type` |
+| `wrong_type` | Alias for `misclassification` | `placeholder` + `correct_type` |
+| `missed_entity` | System failed to detect an entity | `span_text` + `correct_type` |
+| `false_positive` | System flagged something that is not PII | `placeholder` |
+
+## Legacy Single-Correction Format
+
+The original single-correction format is still supported for backwards compatibility.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `session_id` | string | Yes | Session ID from the sanitize response |
+| `feedback_type` | string | Yes | `wrong_type`, `missed_entity`, `false_positive`, or `misclassification` |
+| `text_snippet` | string | Yes | The text span being corrected |
+| `expected_type` | string | No | What the entity should be classified as |
+
+### Legacy Example
+
+```bash
+curl -X POST https://api.ambientmeta.com/v1/feedback \
+  -H "X-API-Key: am_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "session_id": "ses_a1b2c3d4e5f6",
+    "feedback_type": "wrong_type",
+    "text_snippet": "1234567890",
+    "expected_type": "NPI"
+  }'
+```
+
+## SDK Example
+
+```python
+from ambientmeta import AmbientMeta
+
+client = AmbientMeta(api_key="am_live_xxx")
+
+# Sanitize first
+result = client.sanitize("Contact NPI 1234567890 at 555-867-5309")
+
+# Chain corrections on the result
+result.correct("[PHONE_NUMBER_1]", "NPI")         # Misclassified
+result.report_missed("Dr. Smith", "PERSON")       # Missed entity
+result.report_false_positive("[LOCATION_1]")       # False positive
+
+# Submit all corrections at once
+feedback = result.submit_corrections()
+print(f"Accepted: {feedback.accepted}, Contradictions: {feedback.contradictions_detected}")
+```
+
+## Errors
+
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `invalid_api_key` | 401 | API key is missing or invalid |
+| `session_not_found` | 404 | Session ID doesn't exist or has expired |
+| `rate_limited` | 429 | Too many requests |
+
+[View all error codes](/api-reference/errors)

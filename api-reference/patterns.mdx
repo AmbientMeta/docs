@@ -1,0 +1,126 @@
+---
+title: POST /v1/patterns
+description: Create custom entity patterns for your organization
+---
+
+## Why Custom Patterns?
+
+Standard entities cover names, emails, etc. Custom patterns let you detect org-specific data like employee IDs (`EMP-123456`), project codes, internal account numbers, or any custom identifier.
+
+## Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Pattern name (e.g., "EMPLOYEE_ID") |
+| `pattern` | string | Yes | Regex pattern to match |
+| `description` | string | No | Human-readable description |
+| `examples` | array | No | Example matches for validation |
+
+### Example Request
+
+```bash
+curl -X POST https://api.ambientmeta.com/v1/patterns \
+  -H "X-API-Key: am_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "EMPLOYEE_ID",
+    "pattern": "EMP-[0-9]{6}",
+    "description": "Internal employee identifier",
+    "examples": ["EMP-123456", "EMP-789012"]
+  }'
+```
+
+## Response
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `pattern_id` | string | Unique pattern identifier |
+| `name` | string | Pattern name |
+| `status` | string | Pattern status (`"active"`) |
+| `analysis` | object\|null | Overlap and quality analysis (see below) |
+| `conflict` | object\|null | Conflict details if overlaps are detected |
+
+### Example Response
+
+```json
+{
+  "pattern_id": "pat_xyz789",
+  "name": "EMPLOYEE_ID",
+  "status": "active",
+  "analysis": {
+    "overlaps_with": [],
+    "overlap_count": 0,
+    "contradiction_risk": "low",
+    "golden_set_coverage": 0,
+    "suggested_improvements": []
+  },
+  "conflict": null
+}
+```
+
+### Response with Conflict
+
+If the new pattern overlaps with existing entity detections, the response includes a `conflict` block:
+
+```json
+{
+  "pattern_id": "pat_abc123",
+  "name": "ACCOUNT_NUMBER",
+  "status": "active",
+  "analysis": {
+    "overlaps_with": ["PHONE_NUMBER"],
+    "overlap_count": 23,
+    "contradiction_risk": "medium",
+    "golden_set_coverage": 0,
+    "suggested_improvements": []
+  },
+  "conflict": {
+    "has_conflict": true,
+    "conflicting_spans": 23,
+    "conflicting_type": "PHONE_NUMBER",
+    "resolution_required": true,
+    "resolution_options": [
+      {"option": "reclassify_all", "description": "Reclassify all 23 spans as ACCOUNT_NUMBER"},
+      {"option": "add_context_condition", "description": "Add context rule to distinguish"},
+      {"option": "refine_pattern", "description": "Narrow the pattern to avoid overlap"}
+    ],
+    "insight_id": "ins_abc"
+  }
+}
+```
+
+<Info>
+When a conflict is detected, an insight is automatically created. Use the [Insights API](/api-reference/insights) to resolve it.
+</Info>
+
+## Using Custom Patterns
+
+Once created, custom patterns are automatically included in sanitization when `config.custom_patterns` is set to `true` in the request body:
+
+```bash
+curl -X POST https://api.ambientmeta.com/v1/sanitize \
+  -H "X-API-Key: am_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "Contact EMP-123456 about the project",
+    "config": {"custom_patterns": true}
+  }'
+```
+
+Response:
+
+```json
+{
+  "sanitized": "Contact [EMPLOYEE_ID_1] about the project",
+  "session_id": "ses_...",
+  "entities_found": 1
+}
+```
+
+## List Patterns
+
+`GET /v1/patterns` returns all patterns for your organization.
+
+## Delete Patterns
+
+`DELETE /v1/patterns/{pattern_id}` removes a pattern.

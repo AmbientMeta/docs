@@ -1,0 +1,30 @@
+---
+title: GET /v1/health
+description: Check API availability and version
+---
+
+<Note>
+**No authentication required.** This endpoint is public and can be used for uptime monitoring.
+</Note>
+
+## Example Request
+
+```bash
+curl https://api.ambientmeta.com/v1/health
+```
+
+## Response
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | string | Always `"healthy"` when the API is reachable |
+| `version` | string | Current API version |
+
+### Example Response
+
+```json
+{
+  "status": "healthy",
+  "version": "1.1.0"
+}
+```

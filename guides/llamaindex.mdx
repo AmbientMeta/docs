@@ -1,0 +1,73 @@
+---
+title: LlamaIndex Integration
+description: Build compliant RAG pipelines without exposing PII
+---
+
+## Install
+
+```bash
+pip install llamaindex-ambientmeta
+```
+
+## Quick Start
+
+```python
+from llama_index.core import VectorStoreIndex, Settings
+from llama_index.llms.openai import OpenAI
+from llamaindex_ambientmeta import PrivacyLLM
+
+# Wrap your LLM with privacy protection
+Settings.llm = PrivacyLLM(
+    llm=OpenAI(),
+    api_key="am_live_xxx",
+)
+
+# Build your index as normal
+index = VectorStoreIndex.from_documents(documents)
+query_engine = index.as_query_engine()
+
+# Queries are automatically sanitized
+response = query_engine.query("What's in John Smith's contract?")
+# LLM never sees real names
+```
+
+## How It Works
+
+1. Your query is sanitized before processing
+2. RAG retrieval happens with sanitized text
+3. The LLM generates a response with placeholders
+4. Response is rehydrated with original entities
+
+## With Chat Engine
+
+```python
+chat_engine = index.as_chat_engine()
+
+# Multi-turn conversations stay private
+response = chat_engine.chat("Tell me about employee EMP-123456")
+response = chat_engine.chat("What's their email?")
+```
+
+## Configuration
+
+```python
+Settings.llm = PrivacyLLM(
+    llm=OpenAI(model="gpt-4"),
+    api_key="am_live_xxx",
+    entities=["PERSON", "EMAIL_ADDRESS", "SSN"],  # Optional: detect specific entities only
+    auto_rehydrate=True,   # Automatically restore PII in responses (default: True)
+)
+```
+
+## With Any LLM
+
+Works with any LlamaIndex-supported LLM:
+
+```python
+from llama_index.llms.anthropic import Anthropic
+
+Settings.llm = PrivacyLLM(
+    llm=Anthropic(model="claude-sonnet-4-20250514"),
+    api_key="am_live_xxx",
+)
+```

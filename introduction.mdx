@@ -1,0 +1,90 @@
+---
+title: Introduction
+description: The privacy layer for AI — protect PII in every LLM call
+---
+
+# AmbientMeta Documentation
+
+Use any AI without exposing sensitive data. Strip PII before the LLM, restore it after.
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" href="/quickstart">
+    Get your first API call working.
+  </Card>
+  <Card title="API Reference" href="/api-reference/sanitize">
+    Complete endpoint documentation.
+  </Card>
+  <Card title="Python SDK" href="/sdks/python">
+    Install and use the official SDK.
+  </Card>
+  <Card title="Integrations" href="/guides/langchain">
+    LangChain, LlamaIndex, and more.
+  </Card>
+  <Card title="Feedback & Corrections" href="/api-reference/feedback">
+    Submit corrections to improve detection.
+  </Card>
+  <Card title="Insights" href="/api-reference/insights">
+    Resolve conflicts and improve accuracy.
+  </Card>
+</CardGroup>
+
+## How It Works
+
+AmbientMeta Privacy Gateway sits between your application and external LLMs:
+
+1. **Sanitize** — Send text to our API. We detect and replace PII with placeholders like `[PERSON_1]`.
+2. **Call your LLM** — Send the sanitized text to Claude, GPT-4, or any model. The LLM never sees real PII.
+3. **Rehydrate** — Send the LLM's response back to us. We restore the original entities.
+
+```python
+from ambientmeta import AmbientMeta
+import openai
+
+client = AmbientMeta(api_key="am_live_xxx")
+
+# 1. Sanitize user input
+result = client.sanitize("Email john@acme.com about the project")
+
+# 2. Call your LLM (with safe text)
+response = openai.chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": result.sanitized}]
+)
+
+# 3. Rehydrate the response
+final = client.rehydrate(response.choices[0].message.content, result.session_id)
+print(final.text)  # original PII restored
+```
+
+## Supported Entity Types
+
+| Entity | Examples | Detection |
+|--------|----------|-----------|
+| `PERSON` | John Smith, Dr. Jane Doe | NER + patterns |
+| `EMAIL_ADDRESS` | john@acme.com | Regex + validation |
+| `PHONE_NUMBER` | (555) 123-4567 | Multi-format regex |
+| `SSN` | 123-45-6789 | Regex + checksum |
+| `CREDIT_CARD` | 4532-1234-5678-9012 | Regex + Luhn |
+| `LOCATION` | NYC, San Francisco | NER |
+| `ADDRESS` | 123 Main St, Suite 200 | Regex + NER |
+| `NPI` | 1234567890 | Regex + Luhn (10-digit) |
+| `DEA_NUMBER` | AB1234567 | Regex + checksum |
+| `MRN` | MRN-12345678 | Context-aware regex |
+
+## Base URL
+
+```
+https://api.ambientmeta.com/v1
+```
+
+## Authentication
+
+Include your API key in the `X-API-Key` header:
+
+```
+X-API-Key: am_live_your_key_here
+```
+
+<Tip>
+**Ready to start?** Follow the [Quickstart guide](/quickstart) to make your first API call.
+</Tip>

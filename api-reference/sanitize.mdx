@@ -1,0 +1,141 @@
+---
+title: POST /v1/sanitize
+description: Strip PII from text before sending to external LLMs
+---
+
+## Authentication
+
+```
+X-API-Key: am_live_your_key_here
+```
+
+## Request Body
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `text` | string | Yes | Text to sanitize (max 100KB) |
+| `mode` | string | No | `"sanitize"` (default) or `"redact"`. Redact mode permanently removes PII and returns `session_id: null`. |
+| `config.entities` | array | No | Entity types to detect (default: all). See entity types below. |
+| `config.confidence_threshold` | float | No | Minimum confidence score to include a detection (default: 0.0) |
+| `config.custom_patterns` | boolean | No | Include org's custom patterns (default: false) |
+| `config.storage_overrides` | object | No | Per-entity storage tier overrides (e.g., `{"SSN": 1}` for never-store) |
+
+### Example Request
+
+```bash
+curl -X POST https://api.ambientmeta.com/v1/sanitize \
+  -H "X-API-Key: am_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "Email John Smith at john@acme.com about the NYC merger",
+    "config": {"entities": ["PERSON", "EMAIL_ADDRESS", "LOCATION"]}
+  }'
+```
+
+## Response
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `sanitized` | string | Text with PII replaced by placeholders |
+| `session_id` | string\|null | ID for rehydration (valid 24 hours). `null` when `mode="redact"`. |
+| `redacted` | boolean | `true` if redact mode was used |
+| `entities_found` | integer | Number of entities detected |
+| `entities` | array | Details of each detected entity (see below) |
+| `metadata` | object | Processing metadata including `format_type` and `disambiguation_applied` |
+| `processing_ms` | float | Processing time in milliseconds |
+
+### Entity Object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `placeholder` | string | The replacement token, e.g. `[PERSON_1]` |
+| `type` | string | Entity type (see Entity Types below) |
+| `confidence` | float | Detection confidence score (0.0 to 1.0) |
+| `start` | integer | Start character offset in the original text |
+| `end` | integer | End character offset in the original text |
+| `structure` | object\|null | Structural context: `region_type`, `label`, `line` |
+
+### Example Response
+
+```json
+{
+  "sanitized": "Email [PERSON_1] at [EMAIL_ADDRESS_1] about the [LOCATION_1] merger",
+  "session_id": "ses_a1b2c3d4e5f6",
+  "redacted": false,
+  "entities_found": 3,
+  "entities": [
+    {
+      "placeholder": "[PERSON_1]",
+      "type": "PERSON",
+      "confidence": 0.97,
+      "start": 6,
+      "end": 16,
+      "structure": null
+    },
+    {
+      "placeholder": "[EMAIL_ADDRESS_1]",
+      "type": "EMAIL_ADDRESS",
+      "confidence": 0.99,
+      "start": 20,
+      "end": 33,
+      "structure": null
+    },
+    {
+      "placeholder": "[LOCATION_1]",
+      "type": "LOCATION",
+      "confidence": 0.92,
+      "start": 44,
+      "end": 47,
+      "structure": null
+    }
+  ],
+  "metadata": {
+    "format_type": "plain_prose",
+    "disambiguation_applied": false
+  },
+  "processing_ms": 14.2
+}
+```
+
+## Redact Mode
+
+Set `mode: "redact"` to permanently remove PII. Redacted responses cannot be rehydrated.
+
+```bash
+curl -X POST https://api.ambientmeta.com/v1/sanitize \
+  -H "X-API-Key: am_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Email john@acme.com", "mode": "redact"}'
+```
+
+Response will have `"session_id": null` and `"redacted": true`.
+
+## Entity Types
+
+| Type | Description | Detection | Examples |
+|------|-------------|-----------|----------|
+| `PERSON` | Names of people | NER + patterns | John Smith, Dr. Jane Doe |
+| `EMAIL_ADDRESS` | Email addresses | Regex + validation | john@acme.com |
+| `PHONE_NUMBER` | Phone numbers | Multi-format regex | (555) 123-4567 |
+| `SSN` | Social Security Numbers | Regex + checksum | 123-45-6789 |
+| `CREDIT_CARD` | Credit card numbers | Regex + Luhn | 4532-1234-5678-9012 |
+| `LOCATION` | Places, cities | NER | NYC, San Francisco |
+| `ADDRESS` | Physical addresses | Regex + NER | 123 Main St, Suite 200 |
+| `NPI` | National Provider Identifier | Regex + Luhn (10-digit) | 1234567890 |
+| `DEA_NUMBER` | DEA Registration Number | Regex + checksum | AB1234567 |
+| `MRN` | Medical Record Number | Context-aware regex | MRN-12345678 |
+
+<Note>
+`EMAIL` and `PHONE` are accepted as aliases for `EMAIL_ADDRESS` and `PHONE_NUMBER` in the `config.entities` array.
+</Note>
+
+## Errors
+
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `invalid_api_key` | 401 | API key is missing or invalid |
+| `empty_text` | 400 | Text field is empty |
+| `text_too_large` | 413 | Text exceeds 100KB limit |
+| `rate_limited` | 429 | Too many requests |
+
+[View all error codes](/api-reference/errors)

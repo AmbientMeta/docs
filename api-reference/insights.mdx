@@ -1,0 +1,158 @@
+---
+title: Insights
+description: View detected contradictions, proposed improvements, and knowledge metrics
+---
+
+As you submit corrections via [POST /v1/feedback](/api-reference/feedback), the system analyzes patterns in your data. Insights surface contradictions, suggest disambiguation rules, and track your overall detection accuracy.
+
+## GET /v1/insights
+
+### Example Request
+
+```bash
+curl https://api.ambientmeta.com/v1/insights \
+  -H "X-API-Key: am_live_xxx"
+```
+
+### Example Response
+
+```json
+{
+  "pending_conflicts": [
+    {
+      "id": "ins_abc123",
+      "type": "contradiction_cluster",
+      "title": "PHONE_NUMBER vs NPI disambiguation needed",
+      "description": "The system detected that PHONE_NUMBER and NPI are sometimes confused in your data.",
+      "status": "pending",
+      "data": {},
+      "created_at": "2026-02-13T12:00:00Z"
+    }
+  ],
+  "proposed_improvements": [],
+  "discovered_patterns": [],
+  "knowledge_depth": {
+    "ckd_score": 0.42,
+    "maturity": "developing",
+    "strongest_entity": {"type": "EMAIL_ADDRESS", "confidence": 0.99},
+    "weakest_entity": {"type": "NPI", "confidence": 0.71},
+    "contradictions_pending": 3,
+    "contradictions_resolved": 12,
+    "golden_set_size": 234,
+    "compiled_rules": 18,
+    "on_demand_hit_rate": 0.45
+  }
+}
+```
+
+### Response Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `pending_conflicts` | array | Contradictions that need resolution |
+| `proposed_improvements` | array | System-generated rule suggestions |
+| `discovered_patterns` | array | Recurring formats detected from missed entities |
+| `knowledge_depth` | object | Your Customer Knowledge Depth metrics |
+
+### Insight Item Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Insight identifier |
+| `type` | string | `contradiction_cluster`, `pattern_overlap`, `context_condition`, or `discovered_pattern` |
+| `title` | string | Human-readable summary |
+| `description` | string | Detailed explanation |
+| `status` | string | `pending`, `approved`, `rejected`, or `refined` |
+| `data` | object | Insight-specific metadata |
+| `created_at` | string | ISO 8601 timestamp |
+
+### Knowledge Depth Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ckd_score` | float | Customer Knowledge Depth score (0.0 to 1.0) |
+| `maturity` | string | `nascent`, `developing`, `established`, or `expert` |
+| `strongest_entity` | object | Entity type with highest detection confidence |
+| `weakest_entity` | object | Entity type with lowest detection confidence |
+| `contradictions_pending` | integer | Unresolved contradictions |
+| `contradictions_resolved` | integer | Resolved contradictions |
+| `golden_set_size` | integer | Number of validated examples in your golden set |
+| `compiled_rules` | integer | Active disambiguation rules |
+| `on_demand_hit_rate` | float | Fraction of detections where a compiled rule applied |
+
+<Info>
+**Maturity levels:** nascent (0.0-0.2), developing (0.2-0.5), established (0.5-0.8), expert (0.8-1.0). Higher scores mean better detection accuracy tailored to your data.
+</Info>
+
+## POST /v1/insights/\{id\}/resolve
+
+Resolve a pending insight by approving, refining, or rejecting the proposed rule.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `resolution` | string | Yes | `approve`, `refine`, or `reject` |
+| `modifications` | object | For `refine` | Modifications to apply to the proposed rule |
+| `reason` | string | For `reject` | Reason for rejection |
+
+### Approve
+
+```bash
+curl -X POST https://api.ambientmeta.com/v1/insights/ins_abc123/resolve \
+  -H "X-API-Key: am_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{"resolution": "approve"}'
+```
+
+### Refine
+
+```bash
+curl -X POST https://api.ambientmeta.com/v1/insights/ins_abc123/resolve \
+  -H "X-API-Key: am_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "resolution": "refine",
+    "modifications": {
+      "context_condition": {
+        "keywords": ["prescriber", "NPI", "provider", "attending", "clinic"],
+        "distance": 150
+      }
+    }
+  }'
+```
+
+### Reject
+
+```bash
+curl -X POST https://api.ambientmeta.com/v1/insights/ins_abc123/resolve \
+  -H "X-API-Key: am_live_xxx" \
+  -H "Content-Type: application/json" \
+  -d '{"resolution": "reject", "reason": "These are all phone numbers in our system"}'
+```
+
+### Response
+
+```json
+{
+  "status": "approved",
+  "golden_set_entries_created": 2
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | string | Resolution status (`approved`, `refined`, or `rejected`) |
+| `golden_set_entries_created` | integer | Number of new golden set entries created from this resolution |
+
+<Info>
+**All resolutions generate training data.** Approving and refining create positive examples. Rejecting creates a negative signal. Every interaction improves accuracy.
+</Info>
+
+## Errors
+
+| Code | HTTP Status | Description |
+|------|-------------|-------------|
+| `invalid_api_key` | 401 | API key is missing or invalid |
+| `insight_not_found` | 404 | Insight ID doesn't exist |
+| `rate_limited` | 429 | Too many requests |
+
+[View all error codes](/api-reference/errors)

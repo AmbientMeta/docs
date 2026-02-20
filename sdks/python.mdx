@@ -1,0 +1,139 @@
+---
+title: Python SDK
+description: Official Python SDK for AmbientMeta Privacy Gateway
+---
+
+## Installation
+
+```bash
+pip install ambientmeta
+```
+
+## Quick Start
+
+```python
+from ambientmeta import AmbientMeta
+
+client = AmbientMeta(api_key="am_live_xxx")
+
+# Sanitize
+result = client.sanitize("Email john@acme.com")
+print(result.sanitized)  # "Email [EMAIL_ADDRESS_1]"
+
+# Rehydrate
+final = client.rehydrate("Reply to [EMAIL_ADDRESS_1]", result.session_id)
+print(final.text)  # "Reply to john@acme.com"
+```
+
+## Async Support
+
+```python
+from ambientmeta import AsyncAmbientMeta
+
+client = AsyncAmbientMeta(api_key="am_live_xxx")
+result = await client.sanitize("Email john@acme.com")
+```
+
+## Configuration
+
+```python
+client = AmbientMeta(
+    api_key="am_live_xxx",
+    timeout=30,                                # seconds (default: 30)
+    base_url="https://api.ambientmeta.com",    # default API URL
+)
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `api_key` | string | required | Your AmbientMeta API key |
+| `base_url` | string | `https://api.ambientmeta.com` | API base URL |
+| `timeout` | float | `30.0` | Request timeout in seconds |
+
+## Methods
+
+### client.sanitize(text, entities=None, mode="sanitize")
+
+Sanitize text by replacing PII with placeholders. Returns `SanitizeResponse` with `.sanitized`, `.session_id`, `.entities_found`, `.entities`, `.processing_ms`, `.redacted`.
+
+Set `mode="redact"` to permanently remove PII. Redacted responses have `session_id=None` and cannot be rehydrated.
+
+### client.rehydrate(text, session_id)
+
+Restore original PII to sanitized text. Returns `RehydrateResponse` with `.text`, `.entities_restored`, `.processing_ms`.
+
+### client.create_pattern(name, pattern, description="", examples=None)
+
+Create a custom entity pattern. Returns `PatternResponse` with `.pattern_id`, `.name`, `.status`.
+
+### client.send_feedback(session_id, feedback_type, text_snippet, expected_type="")
+
+Submit a single correction. Returns `FeedbackResponse` with `.status`.
+
+### client.get_insights()
+
+Get pending insights and knowledge depth metrics. Returns `InsightsResponse` with `.pending_conflicts`, `.proposed_improvements`, `.discovered_patterns`, `.knowledge_depth`.
+
+### client.resolve_insight(insight_id, resolution, modifications=None, reason=None)
+
+Resolve an insight. `resolution` is `"approve"`, `"refine"`, or `"reject"`.
+
+## Batch Corrections
+
+Chain corrections on a `SanitizeResponse` and submit them all at once:
+
+```python
+from ambientmeta import AmbientMeta
+
+client = AmbientMeta(api_key="am_live_xxx")
+result = client.sanitize("Contact NPI 1234567890 at 555-867-5309")
+
+# Chain corrections
+result.correct("[PHONE_NUMBER_1]", "NPI")         # Misclassified
+result.report_missed("Dr. Smith", "PERSON")       # Missed entity
+result.report_false_positive("[LOCATION_1]")       # Not PII
+
+# Submit all at once
+feedback = result.submit_corrections()
+print(f"Accepted: {feedback.accepted}")
+print(f"Contradictions: {feedback.contradictions_detected}")
+```
+
+### Correction Methods on SanitizeResponse
+
+| Method | Description |
+|--------|-------------|
+| `result.correct(placeholder, correct_type)` | Mark a detected entity as misclassified |
+| `result.report_missed(span_text, correct_type)` | Report an entity the system missed |
+| `result.report_false_positive(placeholder)` | Report a false positive detection |
+| `result.submit_corrections()` | Submit all accumulated corrections (sync) |
+| `await result.asubmit_corrections()` | Submit all accumulated corrections (async) |
+
+## Error Handling
+
+```python
+from ambientmeta import AmbientMeta
+from ambientmeta.exceptions import RateLimitError, NotFoundError, AuthenticationError
+
+client = AmbientMeta(api_key="am_live_xxx")
+
+try:
+    result = client.sanitize(user_input)
+    final = client.rehydrate(response, result.session_id)
+except RateLimitError as e:
+    print(f"Rate limited: {e.message}")
+except NotFoundError:
+    result = client.sanitize(user_input)  # Re-sanitize
+except AuthenticationError:
+    print("Check your API key")
+```
+
+## Error Classes
+
+| Exception | Description |
+|-----------|-------------|
+| `AmbientMetaError` | Base exception for all SDK errors |
+| `AuthenticationError` | API key is invalid or missing (401) |
+| `RateLimitError` | Rate limit exceeded (429) |
+| `NotFoundError` | Resource not found — session, pattern, or insight (404) |
+| `ValidationError` | Request failed validation (422) |
