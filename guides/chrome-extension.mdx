@@ -1,0 +1,81 @@
+---
+title: Chrome Extension
+description: Detect and strip PII directly in ChatGPT, Claude, and Gemini
+---
+
+## Overview
+
+**AmbientMeta Privacy Guard** is a Chrome extension that automatically detects PII as you type into LLM chat interfaces. It works on:
+
+- [ChatGPT](https://chatgpt.com)
+- [Claude](https://claude.ai)
+- [Gemini](https://gemini.google.com)
+
+The extension highlights detected entities inline and lets you sanitize text with one click before sending it to the LLM.
+
+## How It Works
+
+1. **Real-time scanning** — As you type in a chat input, the extension calls the AmbientMeta API to detect PII entities in your text.
+2. **Inline highlighting** — Detected entities (names, emails, phone numbers, etc.) are highlighted directly in the input field.
+3. **One-click sanitize** — Click the sanitize button to replace all detected PII with safe placeholders before sending your message.
+
+All detection runs through the AmbientMeta backend API (`POST /v1/sanitize`), so detection quality is identical to the API and every scan feeds the learning flywheel.
+
+## Authentication
+
+The extension supports two modes:
+
+### Signed Out (Free)
+
+- Uses a shared extension key
+- Limited to **50 sanitizations per day** (detection/highlighting is unlimited)
+- No account required
+
+### Signed In (Google)
+
+- Sign in with Google via the extension popup
+- The extension authenticates using `POST /v1/auth/google-extension`
+- An API key is automatically provisioned for your account
+- Unlimited sanitizations on paid plans
+
+## Daily Limits
+
+| Mode | Detection (highlighting) | Sanitization |
+|------|--------------------------|--------------|
+| Signed out | Unlimited | 50/day |
+| Signed in (free plan) | Unlimited | 50/day (server-enforced) |
+| Signed in (Pro) | Unlimited | Unlimited |
+| Signed in (Pro Plus) | Unlimited | Unlimited |
+
+<Note>
+Detection calls (for inline highlighting) do **not** count toward the daily limit. Only full sanitization requests are counted.
+</Note>
+
+## Configuration
+
+The extension scans for these entity types by default:
+
+- `PERSON` — Names
+- `EMAIL_ADDRESS` — Email addresses
+- `PHONE_NUMBER` — Phone numbers
+- `SSN` — Social Security Numbers
+- `CREDIT_CARD` — Credit card numbers
+- `LOCATION` — Places and cities
+- `ADDRESS` — Physical addresses
+
+## Technical Details
+
+- **Manifest V3** Chrome extension
+- Detection debounced at 1.5 seconds after typing stops
+- Minimum 10 characters before scanning triggers
+- All API calls go through the background service worker
+- Credentials stored in `chrome.storage.local`
+
+## Installation
+
+The extension is available from the Chrome Web Store. After installing:
+
+1. Click the AmbientMeta icon in your toolbar
+2. (Optional) Sign in with Google for higher limits
+3. Navigate to ChatGPT, Claude, or Gemini
+4. Start typing — PII will be highlighted automatically

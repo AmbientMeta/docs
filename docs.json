@@ -39,7 +39,8 @@
             "group": "Integrations",
             "pages": [
               "guides/langchain",
-              "guides/llamaindex"
+              "guides/llamaindex",
+              "guides/chrome-extension"
             ]
           }
         ]
@@ -48,14 +49,26 @@
         "tab": "API Reference",
         "groups": [
           {
-            "group": "API Reference",
+            "group": "Core",
             "pages": [
               "api-reference/sanitize",
               "api-reference/rehydrate",
               "api-reference/feedback",
               "api-reference/patterns",
               "api-reference/insights",
-              "api-reference/health",
+              "api-reference/health"
+            ]
+          },
+          {
+            "group": "Account & Billing",
+            "pages": [
+              "api-reference/billing",
+              "api-reference/webhooks"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
               "api-reference/errors"
             ]
           }

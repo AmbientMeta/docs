@@ -1,0 +1,46 @@
+---
+title: Webhooks
+description: Receive real-time notifications for billing and subscription events
+---
+
+## POST /v1/webhooks/stripe
+
+Handles Stripe webhook events for subscription lifecycle management. This endpoint is called by Stripe, not by your application directly.
+
+<Note>
+You do not call this endpoint yourself. Configure it as a webhook endpoint in your [Stripe Dashboard](https://dashboard.stripe.com/webhooks) pointing to `https://api.ambientmeta.com/v1/webhooks/stripe`.
+</Note>
+
+## Supported Events
+
+| Event | Description |
+|-------|-------------|
+| `checkout.session.completed` | User completed a checkout — plan is activated |
+| `customer.subscription.updated` | Subscription changed (upgrade, downgrade, renewal) |
+| `customer.subscription.deleted` | Subscription cancelled — reverts to free plan |
+| `invoice.payment_failed` | Payment failed — subscription marked `past_due` |
+| `invoice.paid` | Payment succeeded — restores `active` status if previously `past_due` |
+
+## Verification
+
+All incoming webhooks are verified using the `Stripe-Signature` header and your configured webhook secret. Invalid signatures are rejected with HTTP 400.
+
+## Plan Mapping
+
+When a subscription event is received, the API automatically updates the organization's plan and rate limit:
+
+| Plan | Requests/Minute |
+|------|-----------------|
+| Free | 20 |
+| Pro | 600 |
+| Pro Plus | 2,000 |
+
+## Response
+
+All successfully processed events return:
+
+```json
+{
+  "received": true
+}
+```
