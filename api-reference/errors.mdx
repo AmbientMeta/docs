@@ -33,11 +33,6 @@ All errors return a consistent format with actionable suggestions.
 | `invalid_pattern` | 400 | Regex pattern is invalid | Check your pattern syntax |
 | `pattern_not_found` | 404 | Pattern ID doesn't exist | List patterns to find valid IDs |
 | `insight_not_found` | 404 | Insight ID doesn't exist | List insights to find valid IDs |
-| `email_taken` | 409 | Account with this email already exists | Log in or use a different email |
-| `billing_not_configured` | 400 | Billing is not set up on this instance | Contact support |
-| `no_billing_account` | 400 | No Stripe customer for this org | Contact support |
-| `billing_error` | 502 | Stripe communication error | Try again or contact support |
-| `service_unavailable` | 503 | Service is still starting | Retry after a short wait |
 | `internal_error` | 500 | An unexpected error occurred | Try again or contact support |
 
 ## Rate Limits

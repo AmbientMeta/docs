@@ -49,26 +49,14 @@
         "tab": "API Reference",
         "groups": [
           {
-            "group": "Core",
+            "group": "API Reference",
             "pages": [
               "api-reference/sanitize",
               "api-reference/rehydrate",
               "api-reference/feedback",
               "api-reference/patterns",
               "api-reference/insights",
-              "api-reference/health"
-            ]
-          },
-          {
-            "group": "Account & Billing",
-            "pages": [
-              "api-reference/billing",
-              "api-reference/webhooks"
-            ]
-          },
-          {
-            "group": "Reference",
-            "pages": [
+              "api-reference/health",
               "api-reference/errors"
             ]
           }
