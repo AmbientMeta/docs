@@ -1,0 +1,193 @@
+---
+title: Working with Document Formats
+description: Extract plain text from PDFs, DOCX, RTF, and HTML before sending to the API
+---
+
+The AmbientMeta API accepts **plain text only**. If your source data lives in PDF, DOCX, RTF, or HTML files, you need to extract the text before calling `/v1/sanitize`.
+
+<Warning>
+**Common pitfall:** Sending raw file bytes (e.g., the binary contents of an RTF or PDF) directly as the `text` field will not work. The API will attempt to detect PII in the raw markup or binary data, producing unreliable results — missed entities, false positives on control sequences, or garbled output.
+</Warning>
+
+## Why plain text?
+
+AmbientMeta's detection engine analyzes the **structural layout** of human-readable text — prose, key-value pairs, tables, and lists. Binary formats like PDF and DOCX contain rendering instructions, embedded fonts, and metadata that interfere with detection. RTF and HTML contain markup tags that break entity boundary detection.
+
+Always convert to plain text first, then sanitize.
+
+## Python
+
+### PDF
+
+```python
+import pymupdf  # pip install pymupdf
+from ambientmeta import AmbientMeta
+
+client = AmbientMeta(api_key="am_live_xxx")
+
+doc = pymupdf.open("patient_record.pdf")
+text = "\n".join(page.get_text() for page in doc)
+
+result = client.sanitize(text)
+print(result.sanitized)
+```
+
+### DOCX
+
+```python
+import docx  # pip install python-docx
+
+document = docx.Document("intake_form.docx")
+text = "\n".join(p.text for p in document.paragraphs)
+
+result = client.sanitize(text)
+```
+
+### RTF
+
+```python
+from striprtf.striprtf import rtf_to_text  # pip install striprtf
+
+with open("referral_letter.rtf", "r") as f:
+    text = rtf_to_text(f.read())
+
+result = client.sanitize(text)
+```
+
+### HTML
+
+```python
+from bs4 import BeautifulSoup  # pip install beautifulsoup4
+
+with open("report.html", "r") as f:
+    soup = BeautifulSoup(f.read(), "html.parser")
+    text = soup.get_text(separator="\n", strip=True)
+
+result = client.sanitize(text)
+```
+
+## Shell
+
+Use common CLI tools to extract text, then pipe to the API with `curl`.
+
+### PDF (pdftotext)
+
+```bash
+# apt-get install poppler-utils (Debian/Ubuntu)
+# brew install poppler (macOS)
+
+pdftotext patient_record.pdf - | \
+  jq -Rs '{"text": .}' | \
+  curl -s -X POST https://api.ambientmeta.com/v1/sanitize \
+    -H "X-API-Key: am_live_xxx" \
+    -H "Content-Type: application/json" \
+    -d @-
+```
+
+### DOCX (pandoc)
+
+```bash
+# apt-get install pandoc (Debian/Ubuntu)
+# brew install pandoc (macOS)
+
+pandoc intake_form.docx -t plain | \
+  jq -Rs '{"text": .}' | \
+  curl -s -X POST https://api.ambientmeta.com/v1/sanitize \
+    -H "X-API-Key: am_live_xxx" \
+    -H "Content-Type: application/json" \
+    -d @-
+```
+
+### RTF (unrtf)
+
+```bash
+# apt-get install unrtf
+
+unrtf --text referral_letter.rtf | \
+  jq -Rs '{"text": .}' | \
+  curl -s -X POST https://api.ambientmeta.com/v1/sanitize \
+    -H "X-API-Key: am_live_xxx" \
+    -H "Content-Type: application/json" \
+    -d @-
+```
+
+## Node.js
+
+### PDF
+
+```javascript
+import { readFileSync } from "fs";
+import pdf from "pdf-parse"; // npm install pdf-parse
+
+const buffer = readFileSync("patient_record.pdf");
+const { text } = await pdf(buffer);
+
+const res = await fetch("https://api.ambientmeta.com/v1/sanitize", {
+  method: "POST",
+  headers: {
+    "X-API-Key": "am_live_xxx",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ text }),
+});
+
+const result = await res.json();
+console.log(result.sanitized);
+```
+
+### DOCX
+
+```javascript
+import mammoth from "mammoth"; // npm install mammoth
+
+const { value: text } = await mammoth.extractRawText({
+  path: "intake_form.docx",
+});
+
+const res = await fetch("https://api.ambientmeta.com/v1/sanitize", {
+  method: "POST",
+  headers: {
+    "X-API-Key": "am_live_xxx",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ text }),
+});
+```
+
+### HTML
+
+```javascript
+import { JSDOM } from "jsdom"; // npm install jsdom
+import { readFileSync } from "fs";
+
+const html = readFileSync("report.html", "utf-8");
+const text = new JSDOM(html).window.document.body.textContent;
+
+const res = await fetch("https://api.ambientmeta.com/v1/sanitize", {
+  method: "POST",
+  headers: {
+    "X-API-Key": "am_live_xxx",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ text }),
+});
+```
+
+## Tips
+
+<Tip>
+**Preserve structure where possible.** The API's detection engine understands key-value pairs, tables, and lists. When extracting text, prefer tools that maintain line breaks and spacing (e.g., `pdftotext -layout`) over those that collapse everything into a single paragraph.
+</Tip>
+
+<Note>
+**Large documents:** The `text` field has a 100KB limit. For documents that exceed this, split the extracted text into chunks and sanitize each chunk separately. Each call returns its own `session_id` for rehydration.
+</Note>
+
+## Quick reference
+
+| Format | Python | Shell | Node.js |
+|--------|--------|-------|---------|
+| PDF | `pymupdf` | `pdftotext` | `pdf-parse` |
+| DOCX | `python-docx` | `pandoc` | `mammoth` |
+| RTF | `striprtf` | `unrtf` | — |
+| HTML | `beautifulsoup4` | `pandoc` | `jsdom` |
