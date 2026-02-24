@@ -36,6 +36,12 @@
             "pages": ["introduction", "quickstart"]
           },
           {
+            "group": "Guides",
+            "pages": [
+              "guides/document-formats"
+            ]
+          },
+          {
             "group": "Integrations",
             "pages": [
               "guides/langchain",
